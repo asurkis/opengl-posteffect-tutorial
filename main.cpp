@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <exception>
 #include <functional>
+#include <glm/glm.hpp>
 #include <string>
 #include <vector>
 
@@ -162,9 +163,9 @@ int main() {
   glBindBuffer(GL_ARRAY_BUFFER, buffers[0]);
   {
     GLfloat vertices[] = {
-        -0.5f, -0.5f, 0.0f, //
-        -0.5f, 0.5f,  0.0f, //
-        0.5f,  0.0f,  0.0f, //
+        0.0f, 0.0f, 1.0f, //
+        0.0f, 1.0f, 0.0f, //
+        1.0f, 0.0f, 0.0f, //
     };
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
   }
@@ -174,6 +175,10 @@ int main() {
   glBindVertexArray(0);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
 
+  GLint ulMatModel = glGetUniformLocation(mainProgram, "matModel");
+  GLint ulMatView = glGetUniformLocation(mainProgram, "matView");
+  GLint ulMatProjection = glGetUniformLocation(mainProgram, "matProjection");
+  glEnable(GL_DEPTH_TEST);
   glClearColor(0.0f, 0.0f, 1.0f, 0.0f);
 
   while (!glfwWindowShouldClose(window)) {
@@ -183,12 +188,44 @@ int main() {
     glfwGetFramebufferSize(window, &framebufferWidth, &framebufferHeight);
     glViewport(0, 0, framebufferWidth, framebufferHeight);
 
-    glClear(GL_COLOR_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glBindVertexArray(vertexArrays[0]);
     glUseProgram(mainProgram);
+
+    float angle = 0.125f * glfwGetTime();
+    // float angle = 0;
+    float sin = glm::sin(angle);
+    float cos = glm::cos(angle);
+    glm::vec3 pos(2.5f * sin, 2.5f * cos, 1.5f);
+    glm::vec3 forward = glm::normalize(-pos);
+    glm::vec3 up(0.0f, 0.0f, 1.0f);
+    glm::vec3 right = glm::normalize(glm::cross(forward, up));
+    up = glm::normalize(glm::cross(right, forward));
+    float zNear = 0.0625f;
+    float zFar = 32.0f;
+
+    glm::mat4 matModel(1.0f, 0.0f, 0.0f, 0.0f, //
+                       0.0f, 1.0f, 0.0f, 0.0f, //
+                       0.0f, 0.0f, 1.0f, 0.0f, //
+                       0.0f, 0.0f, 0.0f, 1.0f);
+    glm::mat4 matView(right.x, up.x, forward.x, 0.0f, //
+                      right.y, up.y, forward.y, 0.0f, //
+                      right.z, up.z, forward.z, 0.0f, //
+                      0.0f, 0.0f, 0.0f, 1.0f);
+    matView *= glm::mat4(1.0f, 0.0f, 0.0f, 0.0f, //
+                         0.0f, 1.0f, 0.0f, 0.0f, //
+                         0.0f, 0.0f, 1.0f, 0.0f, //
+                         -pos.x, -pos.y, -pos.z, 1.0f);
+    glm::mat4 matProjection(1.0f, 0.0f, 0.0f, 0.0f, //
+                            0.0f, 1.0f, 0.0f, 0.0f, //
+                            0.0f, 0.0f, (zFar + zNear) / (zFar - zNear), 1.0f, //
+                            0.0f, 0.0f, -2.0f * zFar * zNear / (zFar - zNear), 0.0f);
+
+    glUniformMatrix4fv(ulMatModel, 1, GL_FALSE, &matModel[0][0]);
+    glUniformMatrix4fv(ulMatView, 1, GL_FALSE, &matView[0][0]);
+    glUniformMatrix4fv(ulMatProjection, 1, GL_FALSE, &matProjection[0][0]);
+
     glDrawArrays(GL_TRIANGLES, 0, 3);
-    // glUseProgram(0);
-    glBindVertexArray(0);
 
     glfwSwapBuffers(window);
   }
