@@ -1,5 +1,8 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
+#include <assimp/Importer.hpp>
+#include <assimp/postprocess.h>
+#include <assimp/scene.h>
 #include <cstdio>
 #include <exception>
 #include <functional>
@@ -155,25 +158,35 @@ int main() {
   ShaderProgram mainProgram, postProgram;
   mainProgram.init("s1.vert", "s1.frag");
 
-  Buffers buffers(1);
+  Buffers buffers(2);
   VertexArrays vertexArrays(1);
   GLint attribLocation;
 
   glBindVertexArray(vertexArrays[0]);
   glBindBuffer(GL_ARRAY_BUFFER, buffers[0]);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffers[1]);
+  GLuint indexCount;
   {
-    GLfloat vertices[] = {
-        0.0f, 0.0f, 1.0f, //
-        0.0f, 1.0f, 0.0f, //
-        1.0f, 0.0f, 0.0f, //
-    };
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    Assimp::Importer importer;
+    const aiScene *scene =
+        importer.ReadFile("scene.obj", aiProcess_Triangulate);
+    const aiMesh *mesh = scene->mMeshes[0];
+    glBufferData(GL_ARRAY_BUFFER, mesh->mNumVertices * 3 * sizeof(GLfloat),
+                 mesh->mVertices, GL_STATIC_DRAW);
+    std::vector<GLuint> indices;
+    for (int i = 0; i < mesh->mNumFaces; ++i)
+      for (int j = 0; j < mesh->mFaces[i].mNumIndices; ++j)
+        indices.push_back(mesh->mFaces[i].mIndices[j]);
+    indexCount = indices.size();
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexCount * sizeof(GLuint),
+                 indices.data(), GL_STATIC_DRAW);
   }
   attribLocation = glGetAttribLocation(mainProgram, "vertexPosition");
   glEnableVertexAttribArray(attribLocation);
   glVertexAttribPointer(attribLocation, 3, GL_FLOAT, GL_FALSE, 0, 0);
   glBindVertexArray(0);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
   GLint ulMatModel = glGetUniformLocation(mainProgram, "matModel");
   GLint ulMatView = glGetUniformLocation(mainProgram, "matView");
@@ -216,16 +229,17 @@ int main() {
                          0.0f, 1.0f, 0.0f, 0.0f, //
                          0.0f, 0.0f, 1.0f, 0.0f, //
                          -pos.x, -pos.y, -pos.z, 1.0f);
-    glm::mat4 matProjection(1.0f, 0.0f, 0.0f, 0.0f, //
-                            0.0f, 1.0f, 0.0f, 0.0f, //
-                            0.0f, 0.0f, (zFar + zNear) / (zFar - zNear), 1.0f, //
-                            0.0f, 0.0f, -2.0f * zFar * zNear / (zFar - zNear), 0.0f);
+    glm::mat4 matProjection(
+        (float)framebufferHeight / framebufferWidth, 0.0f, 0.0f, 0.0f, //
+        0.0f, 1.0f, 0.0f, 0.0f,                                        //
+        0.0f, 0.0f, (zFar + zNear) / (zFar - zNear), 1.0f,             //
+        0.0f, 0.0f, -2.0f * zFar * zNear / (zFar - zNear), 0.0f);
 
     glUniformMatrix4fv(ulMatModel, 1, GL_FALSE, &matModel[0][0]);
     glUniformMatrix4fv(ulMatView, 1, GL_FALSE, &matView[0][0]);
     glUniformMatrix4fv(ulMatProjection, 1, GL_FALSE, &matProjection[0][0]);
 
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, 0);
 
     glfwSwapBuffers(window);
   }
