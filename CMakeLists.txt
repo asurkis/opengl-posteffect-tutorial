@@ -1,7 +1,8 @@
 cmake_minimum_required(VERSION 3.17)
 project(OpenGL_posteffect_tutorial)
 
+find_package(GLEW REQUIRED)
 find_package(glfw3 REQUIRED)
 
 add_executable(main main.cpp)
-target_link_libraries(main glfw)
+target_link_libraries(main GLEW::GLEW glfw)
