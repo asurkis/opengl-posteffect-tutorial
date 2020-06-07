@@ -8,4 +8,4 @@ find_package(glm REQUIRED)
 find_package(assimp REQUIRED)
 
 add_executable(main main.cpp)
-target_link_libraries(main GLEW::GLEW OpenGL glfw glm assimp::assimp)
+target_link_libraries(main GLEW::GLEW OpenGL glfw glm assimp)

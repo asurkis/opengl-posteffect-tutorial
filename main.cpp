@@ -117,6 +117,8 @@ public:
   };
 DEFINE_GL_ARRAY_HELPER(Buffers, glGenBuffers, glDeleteBuffers)
 DEFINE_GL_ARRAY_HELPER(VertexArrays, glGenVertexArrays, glDeleteVertexArrays)
+DEFINE_GL_ARRAY_HELPER(Textures, glGenTextures, glDeleteTextures)
+DEFINE_GL_ARRAY_HELPER(Framebuffers, glGenFramebuffers, glDeleteFramebuffers)
 
 void myGlfwErrorCallback(int code, const char *description) {
   printf("[GLFW][code=%d] %s\n", code, description);
@@ -157,11 +159,33 @@ int main() {
 
   ShaderProgram mainProgram, postProgram;
   mainProgram.init("s1.vert", "s1.frag");
+  postProgram.init("s2.vert", "s2.frag");
 
-  Buffers buffers(2);
-  VertexArrays vertexArrays(1);
+  Buffers buffers(3);
+  VertexArrays vertexArrays(2);
+  Textures textures(2);
+  Framebuffers framebuffers(1);
   GLint attribLocation;
 
+  glBindVertexArray(vertexArrays[1]);
+  glBindBuffer(GL_ARRAY_BUFFER, buffers[2]);
+  {
+    GLfloat fillTriangle[] = {
+        -1.0f, -1.0f, 0.0f, 0.0f, //
+        3.0f,  -1.0f, 2.0f, 0.0f, //
+        -1.0f, 3.0f,  0.0f, 2.0f, //
+    };
+    glBufferData(GL_ARRAY_BUFFER, sizeof(fillTriangle), fillTriangle,
+                 GL_STATIC_DRAW);
+  }
+  attribLocation = glGetAttribLocation(postProgram, "vertexPosition");
+  glEnableVertexAttribArray(attribLocation);
+  glVertexAttribPointer(attribLocation, 2, GL_FLOAT, GL_FALSE,
+                        4 * sizeof(GLfloat), 0);
+  attribLocation = glGetAttribLocation(postProgram, "vertexTextureCoords");
+  glEnableVertexAttribArray(attribLocation);
+  glVertexAttribPointer(attribLocation, 2, GL_FLOAT, GL_FALSE,
+                        4 * sizeof(GLfloat), (GLvoid *)(2 * sizeof(GLfloat)));
   glBindVertexArray(vertexArrays[0]);
   glBindBuffer(GL_ARRAY_BUFFER, buffers[0]);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffers[1]);
@@ -188,9 +212,45 @@ int main() {
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
+  const int MAX_WIDTH = 2048;
+  const int MAX_HEIGHT = 2048;
+  glBindTexture(GL_TEXTURE_2D, textures[0]);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, MAX_WIDTH, MAX_HEIGHT, 0, GL_RGB,
+               GL_UNSIGNED_BYTE, nullptr);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+
+  glBindTexture(GL_TEXTURE_2D, textures[1]);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, MAX_WIDTH, MAX_HEIGHT, 0,
+               GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+
+  glBindTexture(GL_TEXTURE_2D, 0);
+  glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[0]);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+                         textures[0], 0);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D,
+                         textures[1], 0);
+  GLenum drawBuffers[] = {GL_COLOR_ATTACHMENT0};
+  glDrawBuffers(sizeof(drawBuffers) / sizeof(drawBuffers[0]), drawBuffers);
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+  glBindVertexArray(vertexArrays[1]);
+  glUseProgram(postProgram);
+  glUniform1i(glGetUniformLocation(postProgram, "renderTexture"), 0);
+  glUniform1i(glGetUniformLocation(postProgram, "depthTexture"), 1);
+  glUniform2f(glGetUniformLocation(postProgram, "reverseMaxSize"),
+              1.0f / MAX_WIDTH, 1.0f / MAX_HEIGHT);
+  glUseProgram(0);
+  glBindVertexArray(0);
+
   GLint ulMatModel = glGetUniformLocation(mainProgram, "matModel");
   GLint ulMatView = glGetUniformLocation(mainProgram, "matView");
   GLint ulMatProjection = glGetUniformLocation(mainProgram, "matProjection");
+  GLint ulTextureScale = glGetUniformLocation(postProgram, "textureScale");
   glEnable(GL_DEPTH_TEST);
   glClearColor(0.0f, 0.0f, 1.0f, 0.0f);
 
@@ -201,12 +261,12 @@ int main() {
     glfwGetFramebufferSize(window, &framebufferWidth, &framebufferHeight);
     glViewport(0, 0, framebufferWidth, framebufferHeight);
 
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[0]);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glBindVertexArray(vertexArrays[0]);
     glUseProgram(mainProgram);
 
     float angle = 0.125f * glfwGetTime();
-    // float angle = 0;
     float sin = glm::sin(angle);
     float cos = glm::cos(angle);
     glm::vec3 pos(2.5f * sin, 2.5f * cos, 1.5f);
@@ -240,6 +300,20 @@ int main() {
     glUniformMatrix4fv(ulMatProjection, 1, GL_FALSE, &matProjection[0][0]);
 
     glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, 0);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glBindTexture(GL_TEXTURE_2D, textures[0]);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, textures[1]);
+    glBindVertexArray(vertexArrays[1]);
+    glUseProgram(postProgram);
+    glUniform2f(ulTextureScale, (GLfloat)framebufferWidth / MAX_WIDTH,
+                (GLfloat)framebufferHeight / MAX_HEIGHT);
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, 0);
 
     glfwSwapBuffers(window);
   }
