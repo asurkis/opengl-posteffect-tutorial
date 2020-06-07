@@ -8,5 +8,12 @@ out vec4 pixelColor;
 
 void main() {
   vec4 baseColor = texture2D(renderTexture, textureCoords);
-  pixelColor = vec4(baseColor.x, 1 - baseColor.y, baseColor.z, 1);
+  float sum = 0.0f;
+  float my = texture2D(depthTexture, textureCoords).x;
+  sum += texture2D(depthTexture, textureCoords + vec2(+1, 0) * reverseMaxSize).x;
+  sum += texture2D(depthTexture, textureCoords + vec2(-1, 0) * reverseMaxSize).x;
+  sum += texture2D(depthTexture, textureCoords + vec2(0, +1) * reverseMaxSize).x;
+  sum += texture2D(depthTexture, textureCoords + vec2(0, -1) * reverseMaxSize).x;
+  float d = sum / my - 4.0f;
+  pixelColor = baseColor - vec4(1000.0f * d, 100.0f * d, 10.0f * d, 0);
 }
