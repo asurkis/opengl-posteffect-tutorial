@@ -14,6 +14,6 @@ void main() {
   sum += texture2D(depthTexture, textureCoords + vec2(-1, 0) * reverseMaxSize).x;
   sum += texture2D(depthTexture, textureCoords + vec2(0, +1) * reverseMaxSize).x;
   sum += texture2D(depthTexture, textureCoords + vec2(0, -1) * reverseMaxSize).x;
-  float d = abs(sum / my - 4.0f);
+  float d = max(0.0f, 4.0f - sum / my);
   pixelColor = baseColor - vec4(1000.0f * d, 100.0f * d, 10.0f * d, 0);
 }

@@ -147,7 +147,7 @@ int main() {
   glfwSetErrorCallback(myGlfwErrorCallback);
 
   GLFWwindow *window =
-      glfwCreateWindow(1200, 630, "OpenGL Tutorial", nullptr, nullptr);
+      glfwCreateWindow(640, 360, "OpenGL Tutorial", nullptr, nullptr);
   glfwSetKeyCallback(window, myGlfwKeyCallback);
 
   glfwMakeContextCurrent(window);
@@ -252,7 +252,7 @@ int main() {
   GLint ulMatProjection = glGetUniformLocation(mainProgram, "matProjection");
   GLint ulTextureScale = glGetUniformLocation(postProgram, "textureScale");
   glEnable(GL_DEPTH_TEST);
-  glClearColor(0.75f, 0.75f, 0.75f, 0.0f);
+  glClearColor(0.875f, 0.875f, 0.875f, 0.0f);
 
   while (!glfwWindowShouldClose(window)) {
     glfwPollEvents();
@@ -266,7 +266,7 @@ int main() {
     glBindVertexArray(vertexArrays[0]);
     glUseProgram(mainProgram);
 
-    float angle = 0.125f; //0.125f * glfwGetTime();
+    float angle = 0.5f * glfwGetTime();
     float sin = glm::sin(angle);
     float cos = glm::cos(angle);
     glm::vec3 pos(2.0f * sin, 2.0f * cos, 0.125f);
@@ -308,8 +308,9 @@ int main() {
     glBindTexture(GL_TEXTURE_2D, textures[1]);
     glBindVertexArray(vertexArrays[1]);
     glUseProgram(postProgram);
-    glUniform2f(ulTextureScale, (GLfloat)framebufferWidth / MAX_WIDTH,
-                (GLfloat)framebufferHeight / MAX_HEIGHT);
+    glUniform2f(ulTextureScale,
+                1.0f * framebufferWidth / MAX_WIDTH,
+                1.0f * framebufferHeight / MAX_HEIGHT);
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glBindTexture(GL_TEXTURE_2D, 0);
     glActiveTexture(GL_TEXTURE0);
